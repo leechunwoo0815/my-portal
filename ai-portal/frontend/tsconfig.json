@@ -1,0 +1,51 @@
+// TypeScript 配置
+{
+  "compilerOptions": {
+    // 编译目标：ESNext（最新特性）
+    "target": "ESNext",
+    // 模块系统：ESNext
+    "module": "ESNext",
+    // 模块解析策略：Bundler（Vite推荐）
+    "moduleResolution": "Bundler",
+    // 严格模式
+    "strict": true,
+    // 允许从没有默认导出的模块中导入
+    "allowSyntheticDefaultImports": true,
+    // 启用 ES 模块互操作性
+    "esModuleInterop": true,
+    // 禁用隐式 any
+    "noImplicitAny": true,
+    // 启用 JSX 保留模式（Vue3 推荐）
+    "jsx": "preserve",
+    // 允许导入 JSON 模块
+    "resolveJsonModule": true,
+    // 隔离模块（Vite 需要）
+    "isolatedModules": true,
+    // 路径别名映射
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
+    // 包含的类型声明
+    "types": ["vite/client"],
+    // 跳过库检查
+    "skipLibCheck": true,
+    // 不生成输出文件（Vite 负责构建）
+    "noEmit": true,
+    // 允许在模块中使用 import type
+    "verbatimModuleSyntax": true
+  },
+  // 包含的文件
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.d.ts",
+    "src/**/*.tsx",
+    "src/**/*.vue",
+    "env.d.ts"
+  ],
+  // 排除的文件
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

@@ -1,0 +1,42 @@
+# ============================================================
+# AI技术门户 - Python依赖列表
+# 所有版本号精确锁定，确保可复现性
+# 安装命令: pip install -r requirements.txt
+# ============================================================
+
+# --- Web框架 ---
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+
+# --- 数据库 ---
+sqlalchemy==2.0.30
+alembic==1.13.1
+
+# --- 数据校验 ---
+pydantic==2.7.1
+pydantic-settings==2.2.1
+email-validator>=2.0.0
+
+# --- 认证安全 ---
+python-jose[cryptography]==3.3.0
+bcrypt>=4.0.0
+# passlib[bcrypt]==1.7.4
+python-multipart==0.0.9
+cryptography>=42.0.0
+
+# --- HTTP 客户端 ---
+httpx==0.27.0
+
+# --- 向量数据库 ---
+chromadb==0.5.0
+sentence-transformers==3.0.0
+
+# --- 文件处理 ---
+python-docx==1.1.2
+pymupdf==1.24.5
+
+# --- 系统监控 ---
+psutil==5.9.8
+
+# --- 限流 ---
+slowapi>=0.1.9

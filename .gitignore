@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+*.env.local
+
+# Database
+*.db
+*.db-journal
+*.db-wal
+*.sqlite
+
+# Data
+data/chroma/
+data/uploads/
+data/backups/
+logs/
+
+# Node
+node_modules/
+frontend/dist/
+
+# Docker
+docker-compose.override.yml
+
+# Cache
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Build
+*.log
+
+# Agent context (internal)
+agent_context/
+
+# Consolidate state
+.consolidate-state.json
+
+# Trae IDE
+.trae/

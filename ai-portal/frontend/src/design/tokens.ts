@@ -1,0 +1,45 @@
+export const lightTokens: Record<string, string> = {
+  '--cyber-bg': '#f0f2f5',
+  '--cyber-card': '#ffffff',
+  '--cyber-card-hover': '#f8f9fa',
+  '--cyber-border': '#d0d7de',
+  '--cyber-text': '#1a1a2e',
+  '--cyber-muted': '#4a5568',
+  '--cyber-neon': '#00d4aa',
+  '--cyber-neon-light': 'rgba(0, 212, 170, 0.15)',
+  '--cyber-amber': '#f0b429',
+  '--cyber-amber-light': 'rgba(240, 180, 41, 0.15)',
+  '--cyber-danger': '#ff4757',
+  '--cyber-code-bg': '#f6f8fa',
+  '--cyber-code-text': '#24292e',
+  '--cyber-shadow': '0 2px 12px rgba(0, 0, 0, 0.08)',
+  '--cyber-shadow-hover': '0 4px 24px rgba(0, 0, 0, 0.12)',
+  '--cyber-glow': '0 0 5px rgba(0, 212, 170, 0.3)',
+}
+
+export const darkTokens: Record<string, string> = {
+  '--cyber-bg': '#0d1117',
+  '--cyber-card': '#161b22',
+  '--cyber-card-hover': '#1c2333',
+  '--cyber-border': '#30363d',
+  '--cyber-text': '#e6edf3',
+  '--cyber-muted': '#8b949e',
+  '--cyber-neon': '#00ff88',
+  '--cyber-neon-light': 'rgba(0, 255, 136, 0.12)',
+  '--cyber-amber': '#ffb800',
+  '--cyber-amber-light': 'rgba(255, 184, 0, 0.12)',
+  '--cyber-danger': '#ff6b81',
+  '--cyber-code-bg': '#0d1117',
+  '--cyber-code-text': '#c9d1d9',
+  '--cyber-shadow': '0 2px 12px rgba(0, 0, 0, 0.3)',
+  '--cyber-shadow-hover': '0 4px 24px rgba(0, 0, 0, 0.5)',
+  '--cyber-glow': '0 0 10px rgba(0, 255, 136, 0.4)',
+}
+
+export const designTokens = {
+  spacing: { xs: '4px', sm: '8px', md: '16px', lg: '24px', xl: '32px', '2xl': '48px' },
+  radius: { sm: '4px', md: '8px', lg: '12px', xl: '16px', full: '9999px' },
+  fontSize: { xs: '12px', sm: '13px', base: '15px', lg: '18px', xl: '22px', '2xl': '28px', '3xl': '36px' },
+  lineHeight: { tight: '1.3', normal: '1.6', relaxed: '1.8' },
+  transition: { fast: '0.15s', normal: '0.25s', slow: '0.4s' },
+} as const
