@@ -16,6 +16,13 @@ themeStore.initTheme()
 
 app.use(router)
 
+// 如果已登录，连接 WebSocket 通知
+if (localStorage.getItem('access_token')) {
+  import('./stores/notification').then(({ useNotificationStore }) => {
+    useNotificationStore().connectWebSocket()
+  })
+}
+
 setGlobalLogoutHandler(() => {
   localStorage.removeItem('access_token')
   localStorage.removeItem('refresh_token')

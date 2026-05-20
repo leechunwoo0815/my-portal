@@ -1,15 +1,62 @@
 """通知API"""
-from fastapi import APIRouter, Depends, Query
+import json
+import asyncio
+import logging
+from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_db, get_current_user
+from app.core.security import decode_access_token
 from app.models import User, Notification
 from app.modules.notification.schemas import (
     NotificationItem,
     NotificationListResponse,
 )
 
+logger = logging.getLogger("ai-portal.notification")
+
 router = APIRouter(tags=["通知"])
+
+# ---- WebSocket 连接管理器 ----
+class ConnectionManager:
+    def __init__(self):
+        self._connections: dict[int, list[WebSocket]] = {}
+
+    async def connect(self, user_id: int, ws: WebSocket):
+        await ws.accept()
+        self._connections.setdefault(user_id, []).append(ws)
+
+    def disconnect(self, user_id: int, ws: WebSocket):
+        conns = self._connections.get(user_id, [])
+        if ws in conns:
+            conns.remove(ws)
+        if not conns:
+            self._connections.pop(user_id, None)
+
+    async def send_to_user(self, user_id: int, data: dict):
+        conns = self._connections.get(user_id, [])
+        dead = []
+        for ws in conns:
+            try:
+                await ws.send_json(data)
+            except Exception:
+                dead.append(ws)
+        for ws in dead:
+            self.disconnect(user_id, ws)
+
+manager = ConnectionManager()
+
+
+def push_notification(user_id: int, notif_data: dict):
+    """异步推送通知到 WebSocket（在同步上下文中调用）"""
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            asyncio.ensure_future(manager.send_to_user(user_id, notif_data))
+        else:
+            loop.run_until_complete(manager.send_to_user(user_id, notif_data))
+    except RuntimeError:
+        pass  # 没有事件循环时跳过
 
 
 def create_notification(
@@ -35,6 +82,19 @@ def create_notification(
     db.add(notif)
     db.commit()
     db.refresh(notif)
+
+    # WebSocket 实时推送
+    push_notification(user_id, {
+        "type": "notification",
+        "data": {
+            "id": notif.id,
+            "type": notif.type,
+            "title": notif.title,
+            "content": notif.content,
+            "is_read": False,
+        },
+    })
+
     return notif
 
 
@@ -132,3 +192,40 @@ def get_unread_notification_count(
         Notification.is_read == False,
     ).count()
     return {"unread_count": count}
+
+
+@router.websocket("/ws")
+async def notification_ws(websocket: WebSocket):
+    """WebSocket 实时通知推送
+    连接时通过 query 参数传 token: /api/v1/notification/ws?token=xxx
+    """
+    token = websocket.query_params.get("token")
+    if not token:
+        await websocket.close(code=4001, reason="缺少 token")
+        return
+
+    payload = decode_access_token(token)
+    if not payload:
+        await websocket.close(code=4001, reason="token 无效")
+        return
+
+    user_id_str = payload.get("sub")
+    try:
+        user_id = int(user_id_str)
+    except (TypeError, ValueError):
+        await websocket.close(code=4001, reason="token 格式错误")
+        return
+
+    await manager.connect(user_id, websocket)
+    logger.info("WebSocket 通知连接: user_id=%d", user_id)
+    try:
+        while True:
+            # 保持连接，接收心跳
+            data = await websocket.receive_text()
+            if data == "ping":
+                await websocket.send_text("pong")
+    except WebSocketDisconnect:
+        pass
+    finally:
+        manager.disconnect(user_id, websocket)
+        logger.info("WebSocket 通知断开: user_id=%d", user_id)

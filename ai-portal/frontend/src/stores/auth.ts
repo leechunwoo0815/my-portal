@@ -41,6 +41,10 @@ export const useAuthStore = defineStore('auth', () => {
       localStorage.setItem('access_token', res.access_token)
       localStorage.setItem('refresh_token', res.refresh_token)
       await fetchUser()
+      // 登录后连接 WebSocket 通知
+      import('@/stores/notification').then(({ useNotificationStore }) => {
+        useNotificationStore().connectWebSocket()
+      })
       return { success: true }
     } catch (error: any) {
       let errorMessage = '登录失败，请稍后重试'
@@ -92,6 +96,9 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('refresh_token')
     import('@/stores/chat').then(({ useChatStore }) => {
       useChatStore().$reset()
+    })
+    import('@/stores/notification').then(({ useNotificationStore }) => {
+      useNotificationStore().disconnectWebSocket()
     })
   }
 
