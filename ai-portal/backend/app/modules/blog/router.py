@@ -11,6 +11,7 @@ from app.core.exceptions import NotFound, PermissionDenied
 from app.core.events import EventBus
 from app.models import Blog, User
 from app.models import Comment, UserLike, UserFavorite
+from app.models.blog_version import BlogVersion
 from app.modules.blog.schemas import (
     BlogCreate,
     BlogUpdate,
@@ -89,10 +90,25 @@ def update_blog(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Blog:
-    """更新博客（作者或管理员）"""
+    """更新博客（作者或管理员），自动保存版本历史"""
     blog = crud.get_or_404(db, blog_id, "博客不存在")
     if not current_user.is_admin and blog.author_id != current_user.id:
         raise PermissionDenied("无权编辑该博客")
+
+    # 保存当前版本快照
+    version = BlogVersion(
+        blog_id=blog.id,
+        version=blog.edit_version,
+        title=blog.title,
+        content=blog.content,
+        summary=blog.summary,
+        tags=blog.tags,
+        category=blog.category,
+        editor_id=current_user.id,
+    )
+    db.add(version)
+    blog.edit_version += 1
+
     return crud.update(db, blog, request)
 
 
@@ -134,3 +150,104 @@ def admin_list_blogs(
     items = query.offset((page - 1) * page_size).limit(page_size).all()
     total_pages = (total + page_size - 1) // page_size
     return {"total": total, "page": page, "page_size": page_size, "total_pages": total_pages, "items": items}
+
+
+@router.get("/posts/{blog_id}/versions")
+def list_versions(
+    blog_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[dict]:
+    """获取博客版本历史"""
+    blog = crud.get_or_404(db, blog_id, "博客不存在")
+    if not current_user.is_admin and blog.author_id != current_user.id:
+        raise PermissionDenied("无权查看版本历史")
+
+    versions = db.query(BlogVersion).filter(
+        BlogVersion.blog_id == blog_id
+    ).order_by(BlogVersion.version.desc()).all()
+
+    return [{
+        "id": v.id,
+        "version": v.version,
+        "title": v.title,
+        "summary": v.summary[:100] if v.summary else None,
+        "tags": v.tags,
+        "category": v.category,
+        "created_at": str(v.created_at) if v.created_at else None,
+    } for v in versions]
+
+
+@router.get("/posts/{blog_id}/versions/{version}")
+def get_version_content(
+    blog_id: int,
+    version: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """获取指定版本的完整内容"""
+    blog = crud.get_or_404(db, blog_id, "博客不存在")
+    if not current_user.is_admin and blog.author_id != current_user.id:
+        raise PermissionDenied("无权查看版本历史")
+
+    v = db.query(BlogVersion).filter(
+        BlogVersion.blog_id == blog_id,
+        BlogVersion.version == version,
+    ).first()
+    if not v:
+        raise NotFound("版本不存在")
+
+    return {
+        "id": v.id,
+        "version": v.version,
+        "title": v.title,
+        "content": v.content,
+        "summary": v.summary,
+        "tags": v.tags,
+        "category": v.category,
+        "created_at": str(v.created_at) if v.created_at else None,
+    }
+
+
+@router.post("/posts/{blog_id}/versions/{version}/restore", response_model=BlogResponse)
+def restore_version(
+    blog_id: int,
+    version: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Blog:
+    """恢复到指定版本"""
+    blog = crud.get_or_404(db, blog_id, "博客不存在")
+    if not current_user.is_admin and blog.author_id != current_user.id:
+        raise PermissionDenied("无权恢复版本")
+
+    v = db.query(BlogVersion).filter(
+        BlogVersion.blog_id == blog_id,
+        BlogVersion.version == version,
+    ).first()
+    if not v:
+        raise NotFound("版本不存在")
+
+    # 保存当前状态为新版本
+    snapshot = BlogVersion(
+        blog_id=blog.id,
+        version=blog.edit_version,
+        title=blog.title,
+        content=blog.content,
+        summary=blog.summary,
+        tags=blog.tags,
+        category=blog.category,
+        editor_id=current_user.id,
+    )
+    db.add(snapshot)
+
+    # 恢复
+    blog.title = v.title
+    blog.content = v.content
+    blog.summary = v.summary
+    blog.tags = v.tags
+    blog.category = v.category
+    blog.edit_version += 1
+    db.commit()
+    db.refresh(blog)
+    return blog
