@@ -67,6 +67,12 @@
         <el-form-item label="摘要"><el-input v-model="form.summary" type="textarea" :rows="2" /></el-form-item>
         <el-form-item label="封面"><CoverUpload v-model="form.cover_image" module="blog" /></el-form-item>
         <el-form-item label="内容">
+          <div style="margin-bottom: 8px;">
+            <input ref="mdFileInput" type="file" accept=".md,.markdown" style="display:none" @change="importMarkdown" />
+            <el-button size="small" @click="mdFileInput?.click()">
+              <el-icon><Upload /></el-icon> 导入 .md 文件
+            </el-button>
+          </div>
           <MilkdownEditor v-model="form.content" module="blog" />
         </el-form-item>
         <el-form-item label="发布"><el-switch v-model="form.is_published" /></el-form-item>
@@ -81,7 +87,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, Upload } from '@element-plus/icons-vue'
 import { adminListBlogs, createBlog, updateBlog, deleteBlog } from '@/api/blog'
 import { useCrudAdmin } from '@/composables/useCrudAdmin'
 import MilkdownEditor from '@/components/editor/MilkdownEditor.vue'
@@ -92,6 +98,29 @@ const filterAuthorId = ref<any>(undefined)
 const userOptions = ref<any[]>([])
 const categoryOptions = ref<string[]>(['前端开发', '后端开发', '人工智能', '机器学习', '架构设计', '运维部署'])
 const tagOptions = ref<string[]>(['Vue3', 'React', 'Python', 'FastAPI', 'DeepSeek', 'Docker', 'K8s'])
+
+const mdFileInput = ref<HTMLInputElement>()
+const importMarkdown = (e: Event) => {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = (ev) => {
+    const text = (ev.target?.result as string) || ''
+    // 提取标题（第一个 # 开头的行）
+    const lines = text.split('\n')
+    const titleLine = lines.find(l => l.startsWith('# '))
+    if (titleLine && !form.value.title) {
+      form.value.title = titleLine.replace(/^#\s+/, '').trim()
+    }
+    // 移除标题行，剩余作为内容
+    form.value.content = titleLine
+      ? lines.slice(lines.indexOf(titleLine) + 1).join('\n').trim()
+      : text
+    ElMessage.success('Markdown 导入成功')
+  }
+  reader.readAsText(file)
+  if (mdFileInput.value) mdFileInput.value.value = ''
+}
 
 const {
   list, loading, dialogVisible, saving, isEdit, form,

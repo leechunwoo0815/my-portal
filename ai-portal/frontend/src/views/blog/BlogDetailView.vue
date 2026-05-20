@@ -43,6 +43,9 @@
               <LikeButton target-type="blog" :target-id="blog.id" :count="blog.likes_count" />
               <FavoriteButton target-type="blog" :target-id="blog.id" />
               <ShareButton :url="currentUrl" :title="blog.title" />
+              <el-button size="small" @click="exportMarkdown">
+                <el-icon><Download /></el-icon> 导出MD
+              </el-button>
               <el-button size="small" v-if="isAuthor" type="primary" @click="editBlog">编辑</el-button>
             </div>
           </header>
@@ -113,7 +116,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ArrowLeft } from '@element-plus/icons-vue'
+import { ArrowLeft, Download } from '@element-plus/icons-vue'
 import { getBlogById, listBlogs } from '@/api/blog'
 import CommentSection from '@/components/CommentSection.vue'
 import { DetailSkeleton } from '@/components/skeleton'
@@ -161,6 +164,20 @@ const isAuthor = computed(() => {
 
 const goTo = (id: number) => router.push(`/blog/${id}`)
 const editBlog = () => router.push({ path: '/admin/blogs', query: { edit: String(blog.value?.id) } })
+
+const exportMarkdown = () => {
+  if (!blog.value) return
+  const title = blog.value.title || '未命名'
+  const content = blog.value.content || ''
+  const md = `# ${title}\n\n${content}`
+  const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${title.replace(/[/\\?%*:|"<>]/g, '-')}.md`
+  a.click()
+  URL.revokeObjectURL(url)
+}
 const formatDate = (d?: string) => d ? new Date(d).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(/\//g, '-') : ''
 
 const fetchNavigation = async (currentId: number) => {
