@@ -8,6 +8,9 @@ import request from './client'
 export const getDashboardStats = () =>
   request.get('/v1/admin/stats')
 
+export const getDashboardCharts = () =>
+  request.get('/v1/admin/stats/charts')
+
 // 系统监控
 export const getMonitor = () =>
   request.get('/v1/admin/monitor')

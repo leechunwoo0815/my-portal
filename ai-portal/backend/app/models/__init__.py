@@ -30,6 +30,7 @@ from app.models.content_tag import ContentTag
 from app.models.checkin import CheckinRecord
 from app.models.series import Series, SeriesArticle
 from app.models.history import ReadingHistory
+from app.models.refresh_token import RefreshToken
 
 __all__ = [
     "User", "Project", "Blog", "Conversation", "Message",
@@ -38,5 +39,5 @@ __all__ = [
     "Notification", "UserLike", "UserFavorite", "PointLog", "News",
     "Product", "Solution", "Category", "Tag", "ContentTag", "utc_now",
     "Achievement", "UserAchievement", "CheckinRecord",
-    "Series", "SeriesArticle", "ReadingHistory",
+    "Series", "SeriesArticle", "ReadingHistory", "RefreshToken",
 ]

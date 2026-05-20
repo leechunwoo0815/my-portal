@@ -65,7 +65,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { getDashboardStats as getStats } from '@/api/admin'
+import { getDashboardStats as getStats, getDashboardCharts } from '@/api/admin'
 import * as echarts from 'echarts'
 import { Plus, Key, Upload } from '@element-plus/icons-vue'
 
@@ -95,6 +95,7 @@ const NEON_GREEN = '#00d4aa'
 const AMBER_GOLD = '#f0b429'
 
 onMounted(async () => {
+  // 加载统计数据
   try {
     const data: any = await getStats()
     stats.value[0].value = data.total_conversations
@@ -105,6 +106,20 @@ onMounted(async () => {
     stats.value[5].value = data.today_token_usage
     stats.value[6].value = data.total_users
   } catch (error) { console.error(error) }
+
+  // 加载图表数据
+  let chartData: any = {}
+  try {
+    chartData = await getDashboardCharts() || {}
+  } catch { chartData = {} }
+
+  const trendLabels = chartData.trend?.labels || ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+  const trendData = chartData.trend?.data || [0, 0, 0, 0, 0, 0, 0]
+  const modelData = chartData.models || [{ name: '暂无数据', value: 0 }]
+  const contentLabels = chartData.content?.labels || ['博客', '资讯', '产品', '方案', '项目']
+  const contentData = chartData.content?.data || [0, 0, 0, 0, 0]
+  const activityIndicators = chartData.activity?.indicators || ['博客', '评论', '点赞', '收藏', '签到', '动态']
+  const activityData = chartData.activity?.data || [0, 0, 0, 0, 0, 0]
 
   const textColor = getCssVar('--cyber-muted') || getCssVar('--el-text-color-secondary') || '#8daac5'
   const lineColor = getCssVar('--cyber-border') || getCssVar('--el-border-color') || '#5a7a96'
@@ -117,7 +132,7 @@ onMounted(async () => {
       grid: { top: 30, right: 20, bottom: 30, left: 50 },
       xAxis: {
         type: 'category',
-        data: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
+        data: trendLabels,
         axisLine: { lineStyle: { color: lineColor } },
         axisLabel: { color: textColor },
       },
@@ -128,7 +143,7 @@ onMounted(async () => {
         splitLine: { lineStyle: { color: lineColor, type: 'dashed' } },
       },
       series: [{
-        data: [12, 19, 8, 25, 15, 30, 22],
+        data: trendData,
         type: 'line',
         smooth: true,
         symbol: 'circle',
@@ -152,12 +167,10 @@ onMounted(async () => {
       series: [{
         type: 'pie',
         radius: ['40%', '70%'],
-        data: [
-          { value: 35, name: 'DeepSeek', itemStyle: { color: NEON_GREEN } },
-          { value: 25, name: '智谱GLM', itemStyle: { color: AMBER_GOLD } },
-          { value: 20, name: '通义千问', itemStyle: { color: '#626aef' } },
-          { value: 20, name: '豆包', itemStyle: { color: '#06b6d4' } },
-        ],
+        data: modelData.map((item: any, idx: number) => ({
+          ...item,
+          itemStyle: { color: CYBER_COLORS[idx % CYBER_COLORS.length] },
+        })),
         label: { color: textColor, fontSize: 12 },
         itemStyle: {
           borderRadius: 6,
@@ -181,7 +194,7 @@ onMounted(async () => {
       grid: { top: 30, right: 20, bottom: 30, left: 50 },
       xAxis: {
         type: 'category',
-        data: ['博客', '新闻', '产品', '方案', '项目'],
+        data: contentLabels,
         axisLine: { lineStyle: { color: lineColor } },
         axisLabel: { color: textColor },
       },
@@ -192,13 +205,13 @@ onMounted(async () => {
         splitLine: { lineStyle: { color: lineColor, type: 'dashed' } },
       },
       series: [{
-        data: [
-          { value: 42, itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: NEON_GREEN }, { offset: 1, color: 'rgba(0,212,170,0.3)' }]) } },
-          { value: 28, itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: AMBER_GOLD }, { offset: 1, color: 'rgba(240,180,41,0.3)' }]) } },
-          { value: 15, itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: '#626aef' }, { offset: 1, color: 'rgba(98,106,239,0.3)' }]) } },
-          { value: 10, itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: '#06b6d4' }, { offset: 1, color: 'rgba(6,182,212,0.3)' }]) } },
-          { value: 8, itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: '#a855f7' }, { offset: 1, color: 'rgba(168,85,247,0.3)' }]) } },
-        ],
+        data: contentData.map((val: number, idx: number) => ({
+          value: val,
+          itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: CYBER_COLORS[idx % CYBER_COLORS.length] },
+            { offset: 1, color: CYBER_COLORS[idx % CYBER_COLORS.length] + '4D' },
+          ]) },
+        })),
         type: 'bar',
         barWidth: '50%',
         borderRadius: [4, 4, 0, 0],
@@ -211,14 +224,7 @@ onMounted(async () => {
     radarChart.setOption({
       backgroundColor: 'transparent',
       radar: {
-        indicator: [
-          { name: '博客', max: 100 },
-          { name: '评论', max: 100 },
-          { name: '点赞', max: 100 },
-          { name: '收藏', max: 100 },
-          { name: '签到', max: 100 },
-          { name: '动态', max: 100 },
-        ],
+        indicator: activityIndicators.map((name: string) => ({ name, max: 100 })),
         axisName: { color: textColor, fontSize: 11 },
         splitLine: { lineStyle: { color: lineColor } },
         splitArea: { areaStyle: { color: ['transparent'] } },
@@ -227,7 +233,7 @@ onMounted(async () => {
       series: [{
         type: 'radar',
         data: [{
-          value: [80, 60, 75, 45, 90, 55],
+          value: activityData,
           name: '活跃度',
           areaStyle: { color: 'rgba(0, 212, 170, 0.15)' },
           lineStyle: { color: NEON_GREEN, width: 2 },

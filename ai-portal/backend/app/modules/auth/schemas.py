@@ -13,8 +13,14 @@ class LoginRequest(BaseModel):
 class TokenResponse(BaseModel):
     """登录响应"""
     access_token: str
+    refresh_token: str
     token_type: str = Field(default="bearer")
     expires_in: int
+
+
+class RefreshRequest(BaseModel):
+    """刷新令牌请求"""
+    refresh_token: str = Field(..., description="刷新令牌")
 
 
 class PasswordChangeRequest(BaseModel):

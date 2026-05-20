@@ -100,6 +100,9 @@
             class="result-item"
             @click="goToDetail(item)"
           >
+            <div v-if="item.cover_image" class="result-item__cover">
+              <img :src="item.cover_image" :alt="item.title" @error="($event.target as HTMLImageElement).style.display='none'" />
+            </div>
             <div class="result-item__type">
               <el-tag size="small" :type="typeTagMap[item.target_type] || 'info'">
                 {{ typeNameMap[item.target_type] || item.target_type }}
@@ -108,8 +111,13 @@
             <div class="result-item__content">
               <h3 class="result-item__title">{{ item.title }}</h3>
               <p class="result-item__summary" v-if="item.summary">{{ item.summary }}</p>
+              <div class="result-item__tags" v-if="item.tags">
+                <el-tag v-for="tag in item.tags.split(',').slice(0, 3)" :key="tag" size="small" effect="plain" type="info">{{ tag.trim() }}</el-tag>
+              </div>
               <div class="result-item__meta">
                 <span v-if="item.author_name">{{ item.author_name }}</span>
+                <span v-if="item.view_count">👁 {{ item.view_count }}</span>
+                <span v-if="item.likes_count">♡ {{ item.likes_count }}</span>
                 <span v-if="item.created_at">{{ formatDate(item.created_at) }}</span>
               </div>
             </div>
@@ -133,7 +141,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Search, Clock } from '@element-plus/icons-vue'
-import { searchContent } from '@/api/search'
+import { searchContent, searchSuggest } from '@/api/search'
 import { recommendApi } from '@/api/recommend'
 import { SearchResultSkeleton } from '@/components/skeleton'
 
@@ -213,8 +221,8 @@ const onInput = () => {
   if (q.length < 2) { autocompleteResults.value = []; return }
   autocompleteTimer = setTimeout(async () => {
     try {
-      const res: any = await searchContent({ keyword: q, page: 1, page_size: 5 })
-      autocompleteResults.value = (res.items || []).map((i: any) => i.title).filter(Boolean)
+      const res: any = await searchSuggest(q)
+      autocompleteResults.value = Array.isArray(res) ? res : (res.data || [])
     } catch { autocompleteResults.value = [] }
   }, 300)
 }
@@ -383,10 +391,23 @@ onMounted(() => {
   border: 1px solid transparent;
   border-bottom-color: var(--cyber-border, var(--app-border));
   margin-bottom: 4px;
+  align-items: flex-start;
 }
 .result-item:hover {
   background: var(--cyber-card, var(--app-bg-card));
   border-color: var(--cyber-neon, var(--app-accent));
+}
+.result-item__cover {
+  flex-shrink: 0;
+  width: 80px;
+  height: 60px;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.result-item__cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 .result-item__content {
   flex: 1;
@@ -412,6 +433,12 @@ onMounted(() => {
   gap: 12px;
   font-size: 12px;
   color: var(--cyber-muted, var(--app-text-secondary));
+}
+.result-item__tags {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
 }
 .pagination {
   margin-top: 24px;

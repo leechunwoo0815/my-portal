@@ -26,6 +26,7 @@ export const useAuthStore = defineStore('auth', () => {
   const router = useRouter()
   const user = ref<User | null>(null)
   const token = ref<string>(localStorage.getItem('access_token') || '')
+  const refreshTokenValue = ref<string>(localStorage.getItem('refresh_token') || '')
   const loading = ref(false)
 
   const isLoggedIn = computed(() => !!token.value && !!user.value)
@@ -36,7 +37,9 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const res: any = await loginApi(username, password, rememberMe)
       token.value = res.access_token
+      refreshTokenValue.value = res.refresh_token
       localStorage.setItem('access_token', res.access_token)
+      localStorage.setItem('refresh_token', res.refresh_token)
       await fetchUser()
       return { success: true }
     } catch (error: any) {
@@ -84,7 +87,9 @@ export const useAuthStore = defineStore('auth', () => {
   const forceLogout = () => {
     user.value = null
     token.value = ''
+    refreshTokenValue.value = ''
     localStorage.removeItem('access_token')
+    localStorage.removeItem('refresh_token')
     import('@/stores/chat').then(({ useChatStore }) => {
       useChatStore().$reset()
     })
@@ -93,6 +98,23 @@ export const useAuthStore = defineStore('auth', () => {
   const logout = () => {
     forceLogout()
     router.push('/')
+  }
+
+  const refreshAccessToken = async (): Promise<boolean> => {
+    const rt = localStorage.getItem('refresh_token')
+    if (!rt) return false
+    try {
+      const res: any = await import('@/api/auth').then(m => m.refreshToken(rt))
+      const data = res.data || res
+      token.value = data.access_token
+      refreshTokenValue.value = data.refresh_token
+      localStorage.setItem('access_token', data.access_token)
+      localStorage.setItem('refresh_token', data.refresh_token)
+      return true
+    } catch {
+      forceLogout()
+      return false
+    }
   }
 
   return {
@@ -105,5 +127,7 @@ export const useAuthStore = defineStore('auth', () => {
     fetchUser,
     forceLogout,
     logout,
+    refreshAccessToken,
+    refreshTokenValue,
   }
 })

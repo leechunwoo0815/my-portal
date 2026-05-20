@@ -28,8 +28,10 @@ class Settings(BaseSettings):
     """日志级别（DEBUG/INFO/WARNING/ERROR/CRITICAL），可通过.env配置"""
     SECRET_KEY: str = "change-me-in-production-use-a-strong-random-key"
     """JWT签名密钥（生产环境必须更换为强随机密钥）"""
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
-    """访问令牌过期时间（分钟），默认24小时"""
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    """访问令牌过期时间（分钟），默认30分钟"""
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 30
+    """刷新令牌过期时间（天），默认30天"""
     ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
     """CORS允许的来源，多个用逗号分隔"""
 

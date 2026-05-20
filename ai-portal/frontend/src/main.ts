@@ -18,6 +18,7 @@ app.use(router)
 
 setGlobalLogoutHandler(() => {
   localStorage.removeItem('access_token')
+  localStorage.removeItem('refresh_token')
   router.push('/login')
 })
 // ===== 全局错误处理 =====

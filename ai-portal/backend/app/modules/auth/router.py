@@ -1,6 +1,7 @@
 """认证API路由 - 登录、注册、获取当前用户、修改密码、个人资料"""
+import hashlib
 import logging
-from datetime import timedelta, timezone
+from datetime import timedelta, timezone, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, status, File, UploadFile, Request
@@ -12,10 +13,10 @@ from app.core.exceptions import AuthError, PermissionDenied, AlreadyExists, File
 logger = logging.getLogger("ai-portal.auth")
 
 from app.core.config import settings
-from app.core.security import verify_password, get_password_hash, create_access_token
+from app.core.security import verify_password, get_password_hash, create_access_token, create_refresh_token, decode_refresh_token
 from app.core.deps import get_db, get_current_user
 from app.core.events import EventBus
-from app.models import User
+from app.models import User, RefreshToken
 from app.modules.auth.schemas import (
     LoginRequest,
     TokenResponse,
@@ -25,11 +26,23 @@ from app.modules.auth.schemas import (
     RegisterResponse,
     UserProfileResponse,
     ProfileUpdateRequest,
+    RefreshRequest,
 )
 from app.services.point_service import point_service, LEVEL_TITLES
 
 router = APIRouter(tags=["认证"])
 limiter = Limiter(key_func=get_remote_address)
+
+
+def _issue_refresh_token(db: Session, user_id: int) -> str:
+    """创建并存储 refresh_token，返回 token 字符串"""
+    import uuid
+    token = create_refresh_token(data={"sub": str(user_id), "jti": uuid.uuid4().hex})
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    expires_at = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    db.add(RefreshToken(user_id=user_id, token_hash=token_hash, expires_at=expires_at))
+    db.commit()
+    return token
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -58,8 +71,10 @@ def login(request: Request, login_request: LoginRequest, db: Session = Depends(g
         data={"sub": str(user.id)},
         expires_delta=expires_delta,
     )
+    refresh_token = _issue_refresh_token(db, user.id)
     return TokenResponse(
         access_token=access_token,
+        refresh_token=refresh_token,
         token_type="bearer",
         expires_in=int(expires_delta.total_seconds()),
     )
@@ -100,6 +115,52 @@ def register(request: Request, register_request: RegisterRequest, db: Session = 
         email=new_user.email,
         level=1,
         message="注册成功，请登录",
+    )
+
+
+@router.post("/refresh", response_model=TokenResponse)
+def refresh_token(request: Request, body: RefreshRequest, db: Session = Depends(get_db)) -> TokenResponse:
+    """用 refresh_token 换取新的 access_token + refresh_token"""
+    payload = decode_refresh_token(body.refresh_token)
+    if payload is None:
+        raise AuthError("刷新令牌无效或已过期")
+
+    user_id_str = payload.get("sub")
+    if not user_id_str:
+        raise AuthError("刷新令牌格式错误")
+
+    try:
+        user_id = int(user_id_str)
+    except ValueError:
+        raise AuthError("刷新令牌格式错误")
+
+    # 验证 refresh_token 在数据库中存在且未被吊销
+    token_hash = hashlib.sha256(body.refresh_token.encode()).hexdigest()
+    stored = db.query(RefreshToken).filter(
+        RefreshToken.token_hash == token_hash,
+        RefreshToken.revoked == False,
+    ).first()
+    if not stored:
+        raise AuthError("刷新令牌已失效")
+
+    # 吊销旧的 refresh_token（rotation）
+    stored.revoked = True
+    db.commit()
+
+    # 验证用户存在且活跃
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user or not user.is_active:
+        raise AuthError("用户不存在或已被禁用")
+
+    # 签发新的 access_token + refresh_token
+    access_token = create_access_token(data={"sub": str(user.id)})
+    new_refresh_token = _issue_refresh_token(db, user.id)
+
+    return TokenResponse(
+        access_token=access_token,
+        refresh_token=new_refresh_token,
+        token_type="bearer",
+        expires_in=int(timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES).total_seconds()),
     )
 
 

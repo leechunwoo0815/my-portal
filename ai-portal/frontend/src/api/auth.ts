@@ -34,3 +34,7 @@ export const uploadAvatar = (file: File) => {
 export const changePassword = (oldPassword: string, newPassword: string) => {
   return api.put('/v1/auth/password', { old_password: oldPassword, new_password: newPassword })
 }
+
+export const refreshToken = (refreshTokenValue: string) => {
+  return api.post('/v1/auth/refresh', { refresh_token: refreshTokenValue })
+}
