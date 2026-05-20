@@ -432,6 +432,7 @@ User (1) ──── (*) ReadingHistory # 阅读历史
 Category (1) ── (*) Content      # 分类关联（module_type 区分）
 Tag (1) ──── (*) ContentTag      # 标签关联（多态）
 Series (1) ── (*) SeriesArticle  # 系列文章
+Blog (1) ── (*) BlogVersion      # 博客版本历史
 Conversation (1) ── (*) Message  # AI 对话消息
 KnowledgeBase (1) ── (*) KnowledgeDocument # 知识库文档
 ```
@@ -603,7 +604,7 @@ npx vue-tsc --noEmit  # 类型检查
 
 | # | 功能 | 模块 | 说明 | 状态 |
 |---|------|------|------|------|
-| 1 | 文章版本历史 | blog | 保留编辑历史，支持回滚 | ⬜ |
+| 1 | 文章版本历史 | blog | 更新自动保存快照 + 查看/恢复历史版本 | ✅ |
 | 2 | 内容审核工作流 | admin | 敏感词检测 + 人工审核队列 | ⬜ |
 | 3 | 专栏付费订阅 | series | 付费内容 + 订单系统 | ⬜ |
 | 4 | Markdown 导入/导出 | blog | 详情页导出 .md + 编辑器导入 .md | ✅ |
