@@ -88,6 +88,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { Plus, Upload } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import { adminListBlogs, createBlog, updateBlog, deleteBlog } from '@/api/blog'
 import { useCrudAdmin } from '@/composables/useCrudAdmin'
 import MilkdownEditor from '@/components/editor/MilkdownEditor.vue'

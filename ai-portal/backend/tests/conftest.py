@@ -14,7 +14,10 @@ from app.core.deps import get_db
 from app.core.security import create_access_token, get_password_hash
 from app.models import User
 
-# 测试用 SQLite（内存模式，每个测试隔离）
+# 禁用测试环境下的限流
+from app.modules.auth.router import limiter as auth_limiter
+auth_limiter.enabled = False
+
 TEST_DATABASE_URL = "sqlite:///:memory:"
 engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False}, poolclass=StaticPool)
 TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

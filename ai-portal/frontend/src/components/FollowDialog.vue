@@ -144,12 +144,12 @@ const actionLoadingMap = ref<Record<number, boolean>>({})
 const myFollowingIds = ref<Set<number>>(new Set())
 
 const tabs = computed(() => {
-  const list = [
-    { key: 'following' as const, label: '关注', count: props.followingCount },
-    { key: 'followers' as const, label: '粉丝', count: props.followersCount },
+  const list: Array<{ key: 'following' | 'followers' | 'friends'; label: string; count: number }> = [
+    { key: 'following', label: '关注', count: props.followingCount ?? 0 },
+    { key: 'followers', label: '粉丝', count: props.followersCount ?? 0 },
   ]
   if (isOwner.value) {
-    list.push({ key: 'friends' as const, label: '好友', count: props.friendsCount })
+    list.push({ key: 'friends', label: '好友', count: props.friendsCount ?? 0 })
   }
   return list
 })
