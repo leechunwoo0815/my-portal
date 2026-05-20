@@ -53,10 +53,20 @@ def send_message(
     if not receiver.is_active:
         raise PermissionDenied("该用户已被禁用")
 
+    # 校验：文本消息必须有内容，图片消息必须有 image_url
+    if request.message_type == "image":
+        if not request.image_url:
+            raise PermissionDenied("图片消息必须包含 image_url")
+    else:
+        if not request.content.strip():
+            raise PermissionDenied("消息内容不能为空")
+
     message = DirectMessage(
         sender_id=current_user.id,
         receiver_id=request.receiver_id,
-        content=request.content.strip(),
+        content=request.content.strip() if request.content else "",
+        message_type=request.message_type,
+        image_url=request.image_url,
     )
     db.add(message)
     db.commit()
@@ -119,7 +129,7 @@ def list_conversations(
             "avatar_url": partner.avatar_url,
             "level": partner.level,
             "bio": partner.bio,
-            "last_message": last_msg.content[:50] if last_msg else "",
+            "last_message": "[图片]" if last_msg and last_msg.message_type == "image" else (last_msg.content[:50] if last_msg else ""),
             "last_message_time": last_msg.created_at if last_msg else partner.created_at,
             "unread_count": unread_counts.get(pid, 0),
             "relationship": _get_relationship_label(db, current_user.id, pid),
@@ -157,6 +167,8 @@ def get_conversation_messages(
             "sender_id": m.sender_id,
             "receiver_id": m.receiver_id,
             "content": m.content,
+            "message_type": m.message_type,
+            "image_url": m.image_url,
             "is_read": m.is_read,
             "created_at": m.created_at,
             "sender_nickname": sender.nickname if sender else None,

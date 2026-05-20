@@ -31,20 +31,30 @@
               {{ msg.sender_nickname?.charAt(0) }}
             </el-avatar>
             <div class="bubble-content">
-              <p>{{ msg.content }}</p>
+              <img v-if="msg.message_type === 'image' && msg.image_url"
+                   :src="msg.image_url" class="msg-image" @click="previewImage(msg.image_url)" />
+              <p v-if="msg.content">{{ msg.content }}</p>
               <span class="time">{{ new Date(msg.created_at).toLocaleTimeString() }}</span>
             </div>
           </div>
         </div>
         <div class="chat-input">
+          <input ref="fileInput" type="file" accept="image/*" style="display:none" @change="onFileSelected" />
+          <el-button :icon="Picture" @click="fileInput?.click()" :disabled="uploading" />
           <el-input v-model="newMessage" placeholder="输入消息..." @keyup.enter="sendMessage" />
-          <el-button type="primary" @click="sendMessage" :disabled="!newMessage.trim()">发送</el-button>
+          <el-button type="primary" @click="sendMessage" :disabled="(!newMessage.trim() && !pendingImage) || uploading">
+            {{ uploading ? '上传中...' : '发送' }}
+          </el-button>
         </div>
       </div>
       <div v-else class="no-chat">
         <p>选择一个会话开始聊天</p>
       </div>
     </div>
+
+    <el-dialog v-model="previewVisible" width="auto" append-to-body>
+      <img :src="previewUrl" style="max-width:90vw;max-height:80vh" />
+    </el-dialog>
   </div>
 </template>
 
@@ -53,7 +63,9 @@ import { ref, onMounted, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessage } from 'element-plus'
+import { Picture } from '@element-plus/icons-vue'
 import { messageApi } from '@/api/message'
+import { uploadImage } from '@/api/upload'
 
 const route = useRoute()
 const authStore = useAuthStore()
@@ -63,6 +75,11 @@ const currentUserId = ref<number | null>(null)
 const currentConv = ref<any>(null)
 const newMessage = ref('')
 const messagesRef = ref<HTMLElement>()
+const fileInput = ref<HTMLInputElement>()
+const pendingImage = ref<string | null>(null)
+const uploading = ref(false)
+const previewVisible = ref(false)
+const previewUrl = ref('')
 
 const loadConversations = async () => {
   try {
@@ -83,13 +100,47 @@ const selectConversation = async (userId: number) => {
   } catch (e) { console.error(e) }
 }
 
-const sendMessage = async () => {
-  if (!newMessage.value.trim() || !currentUserId.value) return
+const onFileSelected = async (e: Event) => {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  if (file.size > 10 * 1024 * 1024) {
+    ElMessage.warning('图片大小不能超过 10MB')
+    return
+  }
+  uploading.value = true
   try {
-    await messageApi.send(currentUserId.value, newMessage.value.trim())
+    const res: any = await uploadImage(file, 'moment')
+    pendingImage.value = res.url || res.data?.url
+  } catch {
+    ElMessage.error('图片上传失败')
+    pendingImage.value = null
+  } finally {
+    uploading.value = false
+    if (fileInput.value) fileInput.value.value = ''
+  }
+}
+
+const sendMessage = async () => {
+  if (!currentUserId.value) return
+  const hasText = !!newMessage.value.trim()
+  const hasImage = !!pendingImage.value
+  if (!hasText && !hasImage) return
+
+  try {
+    if (hasImage) {
+      await messageApi.send(currentUserId.value, newMessage.value.trim(), 'image', pendingImage.value!)
+      pendingImage.value = null
+    } else {
+      await messageApi.send(currentUserId.value, newMessage.value.trim())
+    }
     newMessage.value = ''
     await selectConversation(currentUserId.value)
-  } catch (e) { console.error(e); ElMessage.error('操作失败') }
+  } catch (e) { console.error(e); ElMessage.error('发送失败') }
+}
+
+const previewImage = (url: string) => {
+  previewUrl.value = url
+  previewVisible.value = true
 }
 
 onMounted(async () => {
@@ -119,8 +170,9 @@ onMounted(async () => {
 .message-bubble.own { flex-direction: row-reverse; }
 .bubble-content { background: var(--app-bg-secondary); padding: 8px 12px; border-radius: 12px; max-width: 60%; }
 .message-bubble.own .bubble-content { background: var(--app-accent); color: white; }
+.msg-image { max-width: 240px; max-height: 240px; border-radius: 8px; cursor: pointer; display: block; margin-bottom: 4px; }
 .time { font-size: 11px; color: var(--app-text-secondary); }
-.chat-input { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--app-border); }
+.chat-input { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--app-border); align-items: center; }
 .no-chat { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--app-text-secondary); }
 .empty { text-align: center; padding: 40px; color: var(--app-text-secondary); }
 </style>

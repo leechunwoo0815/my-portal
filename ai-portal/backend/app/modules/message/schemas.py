@@ -5,7 +5,9 @@ from datetime import datetime
 
 class MessageSendRequest(BaseModel):
     receiver_id: int
-    content: str = Field(..., min_length=1, max_length=2000)
+    content: str = Field(default="", max_length=2000)
+    message_type: str = Field(default="text", pattern="^(text|image)$")
+    image_url: str | None = Field(None, max_length=500)
 
 
 class MessageItem(BaseModel):
@@ -13,6 +15,8 @@ class MessageItem(BaseModel):
     sender_id: int
     receiver_id: int
     content: str
+    message_type: str = "text"
+    image_url: str | None = None
     is_read: bool
     created_at: datetime
     sender_nickname: str | None

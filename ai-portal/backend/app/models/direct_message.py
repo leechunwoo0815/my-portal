@@ -15,7 +15,9 @@ class DirectMessage(Base):
     id: int = Column(Integer, primary_key=True, index=True, autoincrement=True)
     sender_id: int = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     receiver_id: int = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    content: str = Column(Text, nullable=False)
+    content: str = Column(Text, nullable=False, default="")
+    message_type: str = Column(String(20), default="text", nullable=False)
+    image_url: str | None = Column(String(500), nullable=True)
     is_read: bool = Column(Boolean, default=False, nullable=False, index=True)
     created_at: datetime = Column(DateTime, default=utc_now, nullable=False)
 
