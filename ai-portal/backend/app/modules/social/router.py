@@ -278,3 +278,67 @@ def get_follow_status(
         "followers_count": target_user.followers_count,
         "following_count": target_user.following_count,
     }
+
+
+# ---- 拉黑功能 ----
+from app.models.user_block import UserBlock
+
+
+@router.post("/block/{user_id}")
+def block_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """拉黑用户"""
+    if user_id == current_user.id:
+        raise PermissionDenied("不能拉黑自己")
+    target = db.query(User).filter(User.id == user_id).first()
+    if not target:
+        raise NotFound("用户")
+
+    existing = db.query(UserBlock).filter(
+        UserBlock.blocker_id == current_user.id,
+        UserBlock.blocked_id == user_id,
+    ).first()
+    if existing:
+        raise PermissionDenied("已经拉黑过该用户")
+
+    block = UserBlock(blocker_id=current_user.id, blocked_id=user_id)
+    db.add(block)
+    # 自动取消关注关系
+    db.query(UserFollow).filter(
+        ((UserFollow.follower_id == current_user.id) & (UserFollow.following_id == user_id)) |
+        ((UserFollow.follower_id == user_id) & (UserFollow.following_id == current_user.id))
+    ).delete(synchronize_session=False)
+    db.commit()
+    return {"message": "已拉黑", "blocked": True}
+
+
+@router.post("/unblock/{user_id}")
+def unblock_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """取消拉黑"""
+    db.query(UserBlock).filter(
+        UserBlock.blocker_id == current_user.id,
+        UserBlock.blocked_id == user_id,
+    ).delete(synchronize_session=False)
+    db.commit()
+    return {"message": "已取消拉黑", "blocked": False}
+
+
+@router.get("/block-status/{user_id}")
+def get_block_status(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """查询拉黑状态"""
+    blocked = db.query(UserBlock).filter(
+        UserBlock.blocker_id == current_user.id,
+        UserBlock.blocked_id == user_id,
+    ).first() is not None
+    return {"blocked": blocked}

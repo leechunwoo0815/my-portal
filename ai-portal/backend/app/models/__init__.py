@@ -34,6 +34,7 @@ from app.models.refresh_token import RefreshToken
 from app.models.blog_version import BlogVersion
 from app.models.audit_log import AuditLog
 from app.models.report import Report
+from app.models.user_block import UserBlock
 
 __all__ = [
     "User", "Project", "Blog", "Conversation", "Message",
@@ -42,5 +43,5 @@ __all__ = [
     "Notification", "UserLike", "UserFavorite", "PointLog", "News",
     "Product", "Solution", "Category", "Tag", "ContentTag", "utc_now",
     "Achievement", "UserAchievement", "CheckinRecord",
-    "Series", "SeriesArticle", "ReadingHistory", "RefreshToken", "BlogVersion", "AuditLog", "Report",
+    "Series", "SeriesArticle", "ReadingHistory", "RefreshToken", "BlogVersion", "AuditLog", "Report", "UserBlock",
 ]
