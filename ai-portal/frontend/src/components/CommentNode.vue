@@ -12,7 +12,10 @@
       </span>
       <span class="cs-time">{{ timeAgo(comment.created_at) }}</span>
     </div>
-    <div class="cs-item-content">{{ comment.content }}</div>
+    <div class="cs-item-content">
+      <span v-if="replyToName" class="cs-reply-to">回复 @{{ replyToName }}：</span>
+      {{ comment.content }}
+    </div>
     <div class="cs-item-actions">
       <el-link :underline="false" size="small" class="cs-like-btn" @click="$emit('like', comment)">
         {{ comment.liked ? '❤️' : '🤍' }} {{ comment.likes_count || 0 }}
@@ -45,27 +48,85 @@
       </div>
     </div>
 
-    <div v-if="comment.replies && comment.replies.length" class="cs-replies">
+    <!-- 楼中楼：根评论显示扁平子回复列表 -->
+    <div v-if="depth === 0 && comment.replies && comment.replies.length" class="cs-replies">
+      <div
+        v-for="reply in displayedReplies"
+        :key="reply.id"
+        class="cs-sub-reply"
+      >
+        <div class="cs-sub-reply-hd">
+          <span class="cs-user-tag cs-user-tag-sm" :class="{ clickable: reply.user_id }" @click="goToUserById(reply.user_id)">
+            <img v-if="reply.avatar_url" :src="reply.avatar_url" class="cs-avatar-img-sm" />
+            <span v-else class="cs-avatar-sm">{{ reply.emoji || '🙂' }}</span>
+            <strong class="cs-username-sm">{{ reply.author_name }}</strong>
+          </span>
+          <span class="cs-time">{{ timeAgo(reply.created_at) }}</span>
+        </div>
+        <div class="cs-sub-reply-content">
+          <span v-if="getReplyToName(reply)" class="cs-reply-to">回复 @{{ getReplyToName(reply) }}：</span>
+          {{ reply.content }}
+        </div>
+        <div class="cs-sub-reply-actions">
+          <el-link :underline="false" size="small" class="cs-like-btn" @click="$emit('like', reply)">
+            {{ reply.liked ? '❤️' : '🤍' }} {{ reply.likes_count || 0 }}
+          </el-link>
+          <el-link :underline="false" size="small" class="cs-reply-link" @click="toggleSubReply(reply)">💬 回复</el-link>
+        </div>
+
+        <!-- 子回复的回复表单 -->
+        <div v-if="subReplyTarget === reply.id" class="cs-inline-reply">
+          <div class="cs-inline-reply-input">
+            <el-input
+              ref="subReplyRef"
+              v-model="subReplyContent"
+              type="textarea"
+              :rows="2"
+              :placeholder="`回复 ${reply.author_name}...`"
+              maxlength="5000"
+            />
+          </div>
+          <div class="cs-inline-reply-actions">
+            <el-button size="small" text @click="cancelSubReply">取消</el-button>
+            <el-button size="small" type="primary" :disabled="!subReplyContent.trim()" :loading="subReplySubmitting" @click="submitSubReply(reply)">回复</el-button>
+          </div>
+        </div>
+      </div>
+
+      <el-link
+        v-if="flatReplies.length > displayLimit && !showAll"
+        :underline="false"
+        size="small"
+        class="cs-more"
+        @click="showAll = true"
+      >
+        展开更多 {{ flatReplies.length - displayLimit }} 条回复 ↓
+      </el-link>
+      <el-link
+        v-if="showAll && flatReplies.length > displayLimit"
+        :underline="false"
+        size="small"
+        class="cs-more"
+        @click="showAll = false"
+      >
+        收起回复 ↑
+      </el-link>
+    </div>
+
+    <!-- 深度 > 0 的子评论不再递归（已在父级扁平展示） -->
+    <div v-if="depth > 0 && comment.replies && comment.replies.length" class="cs-replies">
       <CommentNode
-        v-for="child in displayReplies"
+        v-for="child in comment.replies"
         :key="child.id"
         :comment="child"
         :depth="depth + 1"
         :max-replies="maxReplies"
         :time-ago="timeAgo"
         :author-id="authorId"
+        :root-replies="rootReplies"
         @like="(c: any) => $emit('like', c)"
         @submitted="(c: any) => $emit('submitted', c)"
       />
-      <el-link
-        v-if="comment.replies.length > max && !showAll"
-        :underline="false"
-        size="small"
-        class="cs-more"
-        @click="showAll = true"
-      >
-        更多回复 +
-      </el-link>
     </div>
   </div>
 </template>
@@ -82,6 +143,7 @@ const props = defineProps<{
   maxReplies?: number
   timeAgo: (t: string) => string
   authorId?: number
+  rootReplies?: any[]  // 根评论的所有子回复（扁平列表，用于 @mention）
 }>()
 
 const emit = defineEmits<{
@@ -90,13 +152,67 @@ const emit = defineEmits<{
 }>()
 
 const showAll = ref(false)
-const max = computed(() => (props.maxReplies ?? 5))
+const displayLimit = 5
 const isAuthor = computed(() => props.authorId && props.comment.user_id === props.authorId)
+
+// 递归展开所有子回复为扁平列表
+const flattenReplies = (replies: any[], parentAuthorMap: Map<number, string> = new Map()): any[] => {
+  if (!replies) return []
+  const result: any[] = []
+  for (const r of replies) {
+    if (r.parent_id && parentAuthorMap.has(r.parent_id)) {
+      r._replyToName = parentAuthorMap.get(r.parent_id)
+    }
+    parentAuthorMap.set(r.id, r.author_name)
+    result.push(r)
+    if (r.replies?.length) {
+      result.push(...flattenReplies(r.replies, parentAuthorMap))
+    }
+  }
+  return result
+}
+
+// 构建父作者名映射
+const buildParentMap = (replies: any[]): Map<number, string> => {
+  const map = new Map<number, string>()
+  const walk = (list: any[]) => {
+    for (const r of list) {
+      map.set(r.id, r.author_name)
+      if (r.replies?.length) walk(r.replies)
+    }
+  }
+  walk(replies || [])
+  return map
+}
+
+const flatReplies = computed(() => {
+  if (props.depth !== 0) return []
+  const parentMap = buildParentMap(props.comment.replies)
+  return flattenReplies(props.comment.replies, parentMap)
+})
+
+const displayedReplies = computed(() => {
+  if (showAll.value) return flatReplies.value
+  return flatReplies.value.slice(0, displayLimit)
+})
+
+const replyToName = computed(() => {
+  return (props.comment as any)._replyToName || null
+})
+
+const getReplyToName = (reply: any) => {
+  return reply._replyToName || null
+}
 
 const goToUser = () => {
   if (props.comment.user_id) router.push(`/user/${props.comment.user_id}`)
 }
 
+const goToUserById = (userId: number) => {
+  if (userId) router.push(`/user/${userId}`)
+}
+
+// 根评论的回复表单
 const showReplyForm = ref(false)
 const replyContent = ref('')
 const replySubmitting = ref(false)
@@ -104,11 +220,11 @@ const inlineReplyRef = ref<any>(null)
 const replyEmojiPopover = ref<any>(null)
 const replyEmojis = ['😀','😂','👍','❤️','🔥','🎉','💡','🤔','👏','🙏','😊','😍','🚀','⭐','💪','🙌','✨','🎯','💯','😢','🥰','😎','🤩','😈','🎨','🌈','⚡','🦊','🐱','🍀']
 
-const displayReplies = computed(() => {
-  if (!props.comment.replies) return []
-  if (showAll.value || props.depth >= 2) return props.comment.replies
-  return props.comment.replies.slice(0, max.value)
-})
+// 子回复的回复表单
+const subReplyTarget = ref<number | null>(null)
+const subReplyContent = ref('')
+const subReplySubmitting = ref(false)
+const subReplyRef = ref<any>(null)
 
 const toggleReply = () => {
   showReplyForm.value = !showReplyForm.value
@@ -123,6 +239,25 @@ const toggleReply = () => {
 const cancelReply = () => {
   showReplyForm.value = false
   replyContent.value = ''
+}
+
+const toggleSubReply = (reply: any) => {
+  if (subReplyTarget.value === reply.id) {
+    subReplyTarget.value = null
+    subReplyContent.value = ''
+  } else {
+    subReplyTarget.value = reply.id
+    subReplyContent.value = ''
+    nextTick(() => {
+      const ta = subReplyRef.value?.textarea || subReplyRef.value?.$el?.querySelector('textarea')
+      if (ta) ta.focus()
+    })
+  }
+}
+
+const cancelSubReply = () => {
+  subReplyTarget.value = null
+  subReplyContent.value = ''
 }
 
 const insertReplyEmoji = (emoji: string) => {
@@ -152,6 +287,21 @@ const submitReply = async () => {
     replyContent.value = ''
   } finally {
     replySubmitting.value = false
+  }
+}
+
+const submitSubReply = async (reply: any) => {
+  if (!subReplyContent.value.trim()) return
+  subReplySubmitting.value = true
+  try {
+    emit('submitted', {
+      parent_id: reply.id,
+      content: subReplyContent.value.trim(),
+    })
+    subReplyTarget.value = null
+    subReplyContent.value = ''
+  } finally {
+    subReplySubmitting.value = false
   }
 }
 </script>
@@ -189,6 +339,11 @@ const submitReply = async () => {
   background: var(--app-bg, #f5f7fa);
 }
 
+.cs-user-tag-sm {
+  padding: 2px 8px;
+  gap: 4px;
+}
+
 .cs-user-tag.clickable {
   cursor: pointer;
   transition: border-color 0.2s, background 0.2s;
@@ -206,13 +361,31 @@ const submitReply = async () => {
   object-fit: cover;
 }
 
+.cs-avatar-img-sm {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
 .cs-avatar {
   font-size: 16px;
   line-height: 1;
 }
 
+.cs-avatar-sm {
+  font-size: 14px;
+  line-height: 1;
+}
+
 .cs-username {
   font-size: 13px;
+  font-weight: 600;
+  color: var(--app-text, #303133);
+}
+
+.cs-username-sm {
+  font-size: 12px;
   font-weight: 600;
   color: var(--app-text, #303133);
 }
@@ -258,6 +431,12 @@ const submitReply = async () => {
   color: var(--app-text, #303133);
 }
 
+.cs-reply-to {
+  color: var(--app-accent, #409eff);
+  font-weight: 500;
+  font-size: 13px;
+}
+
 .cs-item-actions {
   display: flex;
   gap: 16px;
@@ -301,19 +480,52 @@ const submitReply = async () => {
   margin-top: 8px;
 }
 
+/* 楼中楼子回复 */
 .cs-replies {
   margin-top: 10px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding-left: 20px;
-  border-left: 2px solid var(--app-border, #e4e7ed);
+  gap: 0;
+  background: var(--app-bg, #f5f7fa);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.cs-sub-reply {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--app-border, #e4e7ed);
+}
+
+.cs-sub-reply:last-child {
+  border-bottom: none;
+}
+
+.cs-sub-reply-hd {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.cs-sub-reply-content {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--app-text, #303133);
+  padding-left: 4px;
+  margin-bottom: 4px;
+}
+
+.cs-sub-reply-actions {
+  display: flex;
+  gap: 12px;
+  padding-left: 4px;
 }
 
 .cs-more {
   display: block;
-  margin-top: 4px;
+  padding: 10px;
   text-align: center;
   font-size: 12px;
+  color: var(--app-accent, #409eff);
 }
 </style>
