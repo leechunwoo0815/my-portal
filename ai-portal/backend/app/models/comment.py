@@ -19,6 +19,7 @@ class Comment(Base):
     emoji: str | None = Column(String(10), nullable=True)
     likes_count: int = Column(Integer, default=0, nullable=False)
     liked_ips: str | None = Column(Text, nullable=True)  # Stored as JSON string
+    status: str = Column(String(20), default="visible", nullable=False)  # visible/hidden/flagged
     created_at: datetime = Column(DateTime, default=utc_now, nullable=False)
 
     # 关联到用户表，获取头像和等级

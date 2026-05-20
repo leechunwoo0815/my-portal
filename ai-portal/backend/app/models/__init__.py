@@ -32,6 +32,7 @@ from app.models.series import Series, SeriesArticle
 from app.models.history import ReadingHistory
 from app.models.refresh_token import RefreshToken
 from app.models.blog_version import BlogVersion
+from app.models.audit_log import AuditLog
 
 __all__ = [
     "User", "Project", "Blog", "Conversation", "Message",
@@ -40,5 +41,5 @@ __all__ = [
     "Notification", "UserLike", "UserFavorite", "PointLog", "News",
     "Product", "Solution", "Category", "Tag", "ContentTag", "utc_now",
     "Achievement", "UserAchievement", "CheckinRecord",
-    "Series", "SeriesArticle", "ReadingHistory", "RefreshToken", "BlogVersion",
+    "Series", "SeriesArticle", "ReadingHistory", "RefreshToken", "BlogVersion", "AuditLog",
 ]

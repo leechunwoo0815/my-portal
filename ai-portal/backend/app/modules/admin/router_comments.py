@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import get_db, require_admin
 from app.core.exceptions import NotFound
-from app.models import User, Comment
+from app.models import User, Comment, AuditLog
 
 router = APIRouter(tags=["后台管理"])
 
@@ -14,12 +14,15 @@ def admin_list_comments(
     page: int = 1,
     page_size: int = Query(20, ge=1, le=100),
     user_id: Optional[int] = None,
+    status: str = "",
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
     query = db.query(Comment)
     if user_id is not None:
         query = query.filter(Comment.user_id == user_id)
+    if status:
+        query = query.filter(Comment.status == status)
     query = query.order_by(Comment.created_at.desc())
     total = query.count()
     items = query.offset((page - 1) * page_size).limit(page_size).all()
@@ -48,6 +51,7 @@ def admin_list_comments(
                 "content": c.content,
                 "emoji": c.emoji,
                 "likes_count": c.likes_count,
+                "status": c.status,
                 "created_at": c.created_at,
             }
             for c in items
@@ -75,5 +79,27 @@ def admin_delete_comment(
 
     all_ids = _collect_ids(comment_id)
     db.query(Comment).filter(Comment.id.in_(all_ids)).delete(synchronize_session=False)
+    db.add(AuditLog(admin_id=current_user.id, action="delete_comment", target_type="comment", target_id=comment_id, detail=f"删除 {len(all_ids)} 条评论"))
     db.commit()
     return {"message": f"已删除 {len(all_ids)} 条评论（含回复）"}
+
+
+@router.put("/{comment_id}/status")
+def admin_update_comment_status(
+    comment_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """修改评论状态（visible/hidden/flagged）"""
+    comment = db.query(Comment).filter(Comment.id == comment_id).first()
+    if not comment:
+        raise NotFound("评论")
+    new_status = body.get("status", "visible")
+    if new_status not in ("visible", "hidden", "flagged"):
+        from app.core.exceptions import BadRequest
+        raise BadRequest("状态值无效，必须是 visible/hidden/flagged")
+    comment.status = new_status
+    db.add(AuditLog(admin_id=current_user.id, action="moderate_comment", target_type="comment", target_id=comment_id, detail=f"状态变更为 {new_status}"))
+    db.commit()
+    return {"message": f"评论状态已更新为 {new_status}", "status": new_status}

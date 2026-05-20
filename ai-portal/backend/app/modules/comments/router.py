@@ -7,6 +7,7 @@ from app.core.events import EventBus
 
 from app.core.deps import get_db, get_current_user, get_optional_current_user
 from app.core.exceptions import NotFound, PermissionDenied
+from app.core.moderation import contains_sensitive
 from app.models import Comment, User
 from app.modules.comments.schemas import CommentCreate
 import random
@@ -88,7 +89,7 @@ def list_comments(
     ip = _get_client_ip(request) if request else "unknown"
     all_comments = (
         db.query(Comment)
-        .filter(Comment.target_type == target_type, Comment.target_id == target_id)
+        .filter(Comment.target_type == target_type, Comment.target_id == target_id, Comment.status != "hidden")
         .order_by(Comment.created_at.desc())
         .all()
     )
@@ -163,16 +164,20 @@ def create_comment(
         author_name = _generate_guest_name()
         user_id = None
 
+    content_clean = data.content.strip()
+    status = "flagged" if contains_sensitive(content_clean) else "visible"
+
     comment = Comment(
         target_type=target_type,
         target_id=target_id,
         parent_id=data.parent_id,
         user_id=user_id,
         author_name=author_name,
-        content=data.content.strip(),
+        content=content_clean,
         emoji=data.emoji,
         likes_count=0,
         liked_ips="[]",
+        status=status,
     )
     db.add(comment)
     db.commit()

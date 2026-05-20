@@ -1,14 +1,18 @@
 """博客API路由 - 博客文章CRUD"""
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy import update
 from sqlalchemy.orm import Session
 
+logger = logging.getLogger("ai-portal.blog")
+
 from app.core.crud import CRUDBase
 from app.core.deps import get_db, get_current_user, require_admin
 from app.core.exceptions import NotFound, PermissionDenied
 from app.core.events import EventBus
+from app.core.moderation import contains_sensitive
 from app.models import Blog, User
 from app.models import Comment, UserLike, UserFavorite
 from app.models.blog_version import BlogVersion
@@ -72,6 +76,12 @@ def create_blog(
         raise PermissionDenied("LV3及以上才能发布博客")
     blog = Blog(**request.model_dump())
     blog.author_id = current_user.id
+
+    # 敏感词检查（不阻断，仅记录）
+    check_text = f"{request.title} {request.content or ''} {request.summary or ''}"
+    if contains_sensitive(check_text):
+        logger.warning("博客包含敏感词: user=%s, title=%s", current_user.username, request.title)
+
     db.add(blog)
     db.commit()
     db.refresh(blog)
