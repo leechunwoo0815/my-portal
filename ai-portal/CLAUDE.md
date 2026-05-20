@@ -589,15 +589,15 @@ npx vue-tsc --noEmit  # 类型检查
 
 ## 14. 功能扩展路线图
 
-### Phase P1 — 体验增强
+### Phase P1 — 体验增强 ✅ 已完成
 
-| # | 功能 | 模块 | 说明 |
-|---|------|------|------|
-| 1 | Token 自动刷新 | auth | access_token + refresh_token 双 Token |
-| 2 | WebSocket 通知 | notification | 实时推送，替代轮询 |
-| 3 | 后端全文搜索 | search | ILIKE / FTS，替代前端过滤 |
-| 4 | 仪表盘真实数据 | admin | ECharts 从数据库聚合 |
-| 5 | 私信支持图片 | message | 消息类型扩展 |
+| # | 功能 | 模块 | 说明 | 状态 |
+|---|------|------|------|------|
+| 1 | Token 自动刷新 | auth | access_token (30min) + refresh_token (30d) 双 Token，rotation | ✅ |
+| 2 | 后端全文搜索 | search | SQL 级分页 + title/summary/tags 搜索 + suggest 端点 | ✅ |
+| 3 | 仪表盘真实数据 | admin | ECharts 图表从数据库聚合（趋势/模型/内容/活跃度） | ✅ |
+| 4 | 私信支持图片 | message | message_type + image_url + 前端图片上传/预览 | ✅ |
+| 5 | WebSocket 通知 | notification | 实时推送 + 心跳保活 + 自动重连 + 桌面弹窗 | ✅ |
 
 ### Phase P2 — 内容增强
 
