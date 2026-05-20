@@ -127,10 +127,10 @@ ai-portal/
 │   │   │   ├── event_handlers.py# 事件处理器注册
 │   │   │   ├── exceptions.py    # AppException 统一异常
 │   │   │   └── logging_config.py# 结构化日志
-│   │   ├── models/              # 27 个 SQLAlchemy 模型
-│   │   ├── modules/             # 28 个业务模块（自动注册 /api/v1/{module}）
+│   │   ├── models/              # 32 个 SQLAlchemy 模型
+│   │   ├── modules/             # 29 个业务模块（自动注册 /api/v1/{module}）
 │   │   └── services/            # LLM/RAG/积分/成就/监控服务
-│   ├── tests/                   # 305+ 测试用例
+│   ├── tests/                   # 312 个测试用例（全部通过）
 │   ├── alembic/                 # 数据库迁移
 │   ├── data/                    # SQLite 数据库 + ChromaDB + 上传文件
 │   └── logs/                    # 应用日志
@@ -438,7 +438,7 @@ Conversation (1) ── (*) Message  # AI 对话消息
 KnowledgeBase (1) ── (*) KnowledgeDocument # 知识库文档
 ```
 
-**27 个模型：** User, UserFollow, UserLike, UserFavorite, Blog, News, Product, Solution, Project, Category, Tag, ContentTag, Comment, Moment, Conversation, Message, DirectMessage, Notification, KnowledgeBase, KnowledgeDocument, ApiKey, ApiCallLog, SystemConfig, PointLog, Checkin, Achievement, UserAchievement, Series, SeriesArticle, ReadingHistory
+**32 个模型：** User, UserFollow, UserLike, UserFavorite, UserBlock, Blog, News, Product, Solution, Project, Category, Tag, ContentTag, Comment, Moment, Conversation, Message, DirectMessage, Notification, KnowledgeBase, KnowledgeDocument, ApiKey, ApiCallLog, SystemConfig, PointLog, Checkin, Achievement, UserAchievement, Series, SeriesArticle, ReadingHistory, RefreshToken, BlogVersion, AuditLog, Report
 
 ---
 
@@ -446,7 +446,7 @@ KnowledgeBase (1) ── (*) KnowledgeDocument # 知识库文档
 
 ### 路由自动注册
 
-所有业务 API 以 `/api/v1/{module}` 开头，28 个模块自动注册。
+所有业务 API 以 `/api/v1/{module}` 开头，29 个模块自动注册。
 
 ### 认证方式
 
@@ -480,6 +480,12 @@ Authorization: Bearer <access_token>
 | POST | `/api/v1/checkin` | 是 | 每日签到 |
 | GET | `/api/v1/feed` | 否 | 动态流 |
 | GET | `/api/v1/search` | 否 | 全文搜索 |
+| GET | `/api/v1/search/suggest` | 否 | 搜索自动补全 |
+| POST | `/api/v1/auth/refresh` | 否 | 刷新 Token |
+| POST | `/api/v1/report` | 是 | 提交举报 |
+| POST | `/api/v1/social/block/{id}` | 是 | 拉黑用户 |
+| GET | `/api/v1/notification/ws` | 是(WS) | WebSocket 实时通知 |
+| GET | `/api/v1/blog/posts/{id}/versions` | 是 | 博客版本历史 |
 | GET | `/api/v1/recommend` | 否 | 推荐内容 |
 
 ---
@@ -487,7 +493,7 @@ Authorization: Bearer <access_token>
 ## 9. 测试策略
 
 ```bash
-# 后端测试（305+ 用例）
+# 后端测试（312 用例，全部通过）
 cd ai-portal/backend
 python -m pytest tests/ -v --tb=short
 
